@@ -35,15 +35,17 @@ namespace pong_sfml {
             set { angularVelocity = value; }
         }
 
-        internal Drawable shape;
-        public Drawable Shape {
-            get { return shape; }
-            set { shape = value; }
+        internal float drag;
+        public float Drag {
+            get { return drag; }
+            set { drag = value; }
         }
+
     #endregion
     #region "Methods"
         public void update(float delta) {
             SetPosition(Position + Velocity * delta);
+            SetVelocity(Velocity * (1 - drag * delta));
             Angle += AngularVelocity * delta;
         }
 
@@ -59,6 +61,30 @@ namespace pong_sfml {
 
         public void SetYPosition(float y) {
             position.Y = y;
+        }
+
+        public void SetVelocity(Vector2f vel) {
+            velocity = vel;
+        }
+
+        public void SetXVelocity(float x) {
+            velocity.X = x;
+        }
+
+        public void SetYVelocity(float y) {
+            velocity.Y = y;
+        }
+
+        public void AddVelocity(Vector2f vel) {
+            velocity += vel;
+        }
+
+        public void AddXVelocity(float x) {
+            velocity.X += x;
+        }
+
+        public void AddYVelocity(float y) {
+            velocity.Y += y;
         }
 #endregion
     }

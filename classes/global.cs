@@ -2,6 +2,7 @@ using SFML.Graphics;
 using SFML.System;
 using SFML.Window;
 using System;
+using System.Collections.Generic;
 
 namespace pong_sfml {
     public static class Global {            
@@ -20,6 +21,8 @@ namespace pong_sfml {
         public static mouse Mouse  {
             get { return mouse; }
         }
+        
+        public static Dictionary<string, sound> sfx = new Dictionary<string, sound>();
 
         public static RenderWindow createWindow(string Title) {
             RenderWindow window = new RenderWindow(new VideoMode((uint)ScreenSize.X, (uint)ScreenSize.Y), Title);

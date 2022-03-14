@@ -21,15 +21,22 @@ namespace pong_sfml
         private float timeScale = 1.0f;
         private DateTime lastTime;
 
-        // paddles
         rectangle leftPaddle;
         rectangle rightPaddle;
-        circle ball;
+        
+        rectangle ball;
+        DateTime ballSpawn;
 
-        float paddleSpeed = 40f;
+        rectangle topEdge;
+        rectangle bottomEdge;
+
+        float maxPaddleSpeed = 300f;
+        float paddleAcceleration = 120f;
 
         int leftScore;
         int rightScore;
+
+        rectangle lastPoint;
 
         Vector2f playingField;
 
@@ -39,6 +46,10 @@ namespace pong_sfml
         }
 
         public void init() {
+            Global.sfx.Add("wall", new sound("sounds/wall.wav"));
+            Global.sfx.Add("paddle", new sound("sounds/paddle.wav"));
+            Global.sfx.Add("score", new sound("sounds/score.wav"));
+
             playingField = new Vector2f(Global.ScreenSize.Y / 2f - 200, Global.ScreenSize.Y / 2f + 200);
 
             leftPaddle = new rectangle(new Vector2f(10, 40));
@@ -46,7 +57,7 @@ namespace pong_sfml
             leftPaddle.OutlineColour = new Color(200, 0, 0);
             leftPaddle.OutlineThickness = 2f;
             leftPaddle.FillColour = new Color(255, 50, 50);
-            leftPaddle.Drag = 2f;
+            leftPaddle.Drag = 10f;
             leftScore = 0;
 
             rightPaddle = new rectangle(new Vector2f(10, 40));
@@ -54,8 +65,24 @@ namespace pong_sfml
             rightPaddle.OutlineColour = new Color(0, 200, 0);
             rightPaddle.OutlineThickness = 2f;
             rightPaddle.FillColour = new Color(50, 255, 50);
-            rightPaddle.Drag = 2f;
+            rightPaddle.Drag = 10f;
             rightScore = 0;
+
+            topEdge = new rectangle(new Vector2f(Global.ScreenSize.X, 5));
+            topEdge.SetPosition(new Vector2f(Global.ScreenSize.X / 2f, playingField.X + 20));
+            topEdge.FillColour = Color.White;
+
+            bottomEdge = new rectangle(new Vector2f(Global.ScreenSize.X, 5));
+            bottomEdge.SetPosition(new Vector2f(Global.ScreenSize.X / 2f, playingField.Y - 20));
+            bottomEdge.FillColour = Color.White;
+
+            ballSpawn = DateTime.Now.AddSeconds(1);
+
+            if (util.randint(0, 1) > 0) {
+                lastPoint = rightPaddle;
+            } else {
+                lastPoint = leftPaddle;
+            }
         }
 
         public void update(float delta) {
@@ -65,16 +92,66 @@ namespace pong_sfml
                 window.Close();
             }
 
+            if (ball == null) {
+                if (DateTime.Now > ballSpawn) {
+                    ball = new rectangle(new Vector2f(10, 10));
+                    ball.SetPosition(Global.ScreenSize / 2f);
+                    ball.SetVelocity(new Vector2f(100, util.randfloat(-200, 200)));
+                    ball.FillColour = Color.White;
+
+                    if (lastPoint == rightPaddle) {
+                        ball.SetXVelocity(ball.Velocity.X * -1);
+                    }
+                }
+            } else {
+                ball.update(delta);
+
+                // check for collisions against the walls
+                if (intersection.rectangleInsideRectangle(ball.ToFloatRect(), topEdge.ToFloatRect()) ||
+                    intersection.rectangleInsideRectangle(ball.ToFloatRect(), bottomEdge.ToFloatRect())) {
+                    Global.sfx["wall"].play();
+                    ball.SetYVelocity(ball.Velocity.Y * -1);
+                }
+
+                // check for collisions against the paddles
+                if (intersection.rectangleInsideRectangle(ball.ToFloatRect(), leftPaddle.ToFloatRect())) {
+                    Global.sfx["paddle"].play();
+                    Vector2f dir = util.normalise(ball.Position - leftPaddle.Position);
+                    dir *= util.magnitude(ball.Velocity * -1.1f);
+                    ball.SetVelocity(dir);
+                }
+
+                // check for collisions against the paddles
+                if (intersection.rectangleInsideRectangle(ball.ToFloatRect(), rightPaddle.ToFloatRect())) {
+                    Global.sfx["paddle"].play();
+                    Vector2f dir = util.normalise(ball.Position - rightPaddle.Position);
+                    dir *= util.magnitude(ball.Velocity * -1.1f);
+                    ball.SetVelocity(dir);
+                }
+
+                if (ball.Position.X < 0) {
+                    rightScore += 1;
+                    ballSpawn = DateTime.Now.AddSeconds(1);
+                    ball = null;
+                    Global.sfx["score"].play();                    
+                } else if (ball.Position.X > Global.ScreenSize.X) {
+                    leftScore += 1;
+                    ballSpawn = DateTime.Now.AddSeconds(1);
+                    ball = null;
+                    Global.sfx["score"].play();
+                }
+            }
+
             // left paddle is controlled with W and S keys
             // right paddle is controlled with up and down arrows
 
             ///////// left paddle ///////////
-            if (Global.Keyboard["w"].isPressed) {
-                leftPaddle.AddYVelocity(-paddleSpeed);
+            if (Global.Keyboard["w"].isPressed && leftPaddle.Velocity.Y > -maxPaddleSpeed) {
+                leftPaddle.AddYVelocity(-paddleAcceleration);
             }
 
-            if (Global.Keyboard["s"].isPressed) {
-                leftPaddle.AddYVelocity(paddleSpeed);
+            if (Global.Keyboard["s"].isPressed && leftPaddle.Velocity.Y < maxPaddleSpeed) {
+                leftPaddle.AddYVelocity(paddleAcceleration);
             }
 
             if (leftPaddle.Position.Y < playingField.X + leftPaddle.Size.Y) {
@@ -90,12 +167,12 @@ namespace pong_sfml
             leftPaddle.update(delta);
 
             ///////// right paddle ///////////
-            if (Global.Keyboard["up"].isPressed) {
-                rightPaddle.AddYVelocity(-paddleSpeed);
+            if (Global.Keyboard["up"].isPressed && rightPaddle.Velocity.Y > -maxPaddleSpeed) {
+                rightPaddle.AddYVelocity(-paddleAcceleration);
             }
 
-            if (Global.Keyboard["down"].isPressed) {
-                rightPaddle.AddYVelocity(paddleSpeed);
+            if (Global.Keyboard["down"].isPressed && rightPaddle.Velocity.Y < maxPaddleSpeed) {
+                rightPaddle.AddYVelocity(paddleAcceleration);
             }
 
             if (rightPaddle.Position.Y < playingField.X + rightPaddle.Size.Y) {
@@ -114,17 +191,38 @@ namespace pong_sfml
         public void draw() {
             window.Clear();
 
+            topEdge.draw(window);
+            bottomEdge.draw(window);
+
+            // Scores
+            Text leftScoreText = new Text(leftScore.ToString(), Fonts.Hyperspace);
+            leftScoreText.CharacterSize = 48;
+            leftScoreText.Position = new Vector2f(10, 0);
+            leftScoreText.FillColor = Color.White;
+            window.Draw(leftScoreText);
+
+            Text rightScoreText = new Text(rightScore.ToString(), Fonts.Hyperspace);
+            rightScoreText.CharacterSize = 48;
+            rightScoreText.Position = new Vector2f(Global.ScreenSize.X - 10 - 24, 0);
+            rightScoreText.FillColor = Color.White;
+            window.Draw(rightScoreText);
+
             leftPaddle.draw(window);
             rightPaddle.draw(window);
 
-            RectangleShape topEdge = new RectangleShape(new Vector2f(Global.ScreenSize.X, 5));
-            topEdge.Position = new Vector2f(0, playingField.X);
+            // fence in the middle
+            int divisions = 20;
+            float spacing = (playingField.Y - playingField.X) / divisions;
 
-            RectangleShape bottomEdge = new RectangleShape(new Vector2f(Global.ScreenSize.X, 5));
-            bottomEdge.Position = new Vector2f(0, playingField.Y);
+            for (int i = 1; i < divisions - 1; i++) {
+                RectangleShape rs = new RectangleShape(new Vector2f(2, spacing / 2f));
+                rs.Position = new Vector2f(Global.ScreenSize.X / 2f, playingField.X + spacing * i);
+                rs.Origin = new Vector2f(-1, spacing / -2f);
+                rs.FillColor = Color.White;
+                window.Draw(rs);
+            }
 
-            window.Draw(topEdge);
-            window.Draw(bottomEdge);
+            if (ball != null) { ball.draw(window); }
 
             window.Display();
         }

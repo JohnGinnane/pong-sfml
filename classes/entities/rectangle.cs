@@ -45,5 +45,9 @@ namespace pong_sfml {
 
             base.draw(window);
         }
+
+        public FloatRect ToFloatRect() {
+            return new FloatRect(Position - size / 2f, size);
+        }
     }
 }
